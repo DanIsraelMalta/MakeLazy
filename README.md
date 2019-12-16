@@ -1,3 +1,5 @@
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/60dee26081f547baa293ccf2dc7b7002)](https://www.codacy.com/app/DanIsraelMalta/MakeLazy?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=DanIsraelMalta/MakeLazy&amp;utm_campaign=Badge_Grade)
+
 trying to add lazy evaluated operator overloading syntax to a given container without modifing it?
 no problem, thats the reason MakeLazy was created for, just wrap a given container with it and compile...
 
