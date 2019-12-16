@@ -1,5 +1,5 @@
 trying to add lazy evaluated operator overloading syntax to a given container without modifing it?
-no problem, thats why MakeLazy was created for, just wrap a given container with it and compile...
+no problem, thats the reason MakeLazy was created for, just wrap a given container with it and compile...
 
 simple example usage:
 ```c
