@@ -45,9 +45,9 @@ std::cout << "lazy is " << std::string(temp ? "faster" : "slower");
 ```
 
 remarks:
-1) the wrapped container must include the following:
-   a. 'size' method (which returns the amount of elements in collection).
-   b. '[]' operator which allow access to an element via an index.
-2) the underlying element held by the wrapped container must support the overloaded operations.
-3) MakeLazy is not so usefull when handling containers of numerical varaibles. The reason is that
+* the wrapped container must include the following:
+   - 'size' method (which returns the amount of elements in collection).
+   - '[]' operator which allow access to an element via an index.
+* the underlying element held by the wrapped container must support the overloaded operations.
+* MakeLazy is not so usefull when handling containers of numerical varaibles. The reason is that
    the compiler might optimize this loops to use SIMD intrinsics, while MakeLazy is not SIMD friendly.
