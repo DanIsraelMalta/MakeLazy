@@ -39,14 +39,10 @@ int main() {
     
     // test a simple case with std::string
     {
-        std::vector<std::string> a(1'000'000),
-                                 b(1'000'000),
-                                 c(1'000'000),
-                                 d(1'000'000);
-        std::fill(a.begin(), a.end(), "expression ");
-        std::fill(b.begin(), b.end(), "template ");
-        std::fill(c.begin(), c.end(), "rule!");
-        std::fill(d.begin(), d.end(), "993766dk");
+        std::vector<std::string> a(1'000'000, "expression "),
+                                 b(1'000'000, "template "),
+                                 c(1'000'000, "rule!"),
+                                 d(1'000'000, "99887766");
 
         // wrap vector to be lazy
         Lazy::Container<decltype(a)> lazy_a(a),
