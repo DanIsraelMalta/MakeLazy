@@ -101,27 +101,51 @@ namespace Lazy {
         };
 
         /**
+        * concepts
+        **/
+        namespace Concepts {
+            // test if an object is a binary expression
+            template<typename>                           struct is_binary_expression                                    : std::false_type {};
+            template<typename L, typename B, typename R> struct is_binary_expression<detail::BinaryExpression<L, B, R>> : std::true_type  {};
+            template<typename T> constexpr bool is_binary_expression_v = is_binary_expression<T>::value;
+
+            // test if an object has the 'size()' method
+            template<typename T, typename = void> struct has_size                                                : std::false_type {};
+            template<typename T>                  struct has_size<T, decltype(std::declval<T>().size(), void())> : std::true_type  {};
+            template<typename T> constexpr bool has_size_v = has_size<T>::value;
+
+            // test if an object has '[]' operator
+            template<typename T, typename = void> struct has_access_operator                                                 : std::false_type {};
+            template<typename T>                  struct has_access_operator<T, std::void_t<decltype(std::declval<T>()[0])>> : std::true_type  {};
+            template<typename T> constexpr bool haa_access_operator_v = has_access_operator<T>::value;
+
+            // test if an object can be wrapped by Lazy::Container
+            template<typename T> constexpr bool can_be_wrapped = has_size_v<T> && haa_access_operator_v<T>;
+        }
+
+        /**
         * binary operations (numerical/bit)
         **/
         namespace BinaryOperations {
 
 #define CREATE_BINARY_OPERATION(xi_name, xi_operator, xi_assign_operator)                                      \
-        template<typename T> struct xi_name {                                                                  \
-            constexpr static T apply(const T& a, const T& b) { return a xi_operator b; }                       \
+        template<typename T>                                                                                   \
+        struct xi_name {                                                                                       \
+            constexpr static T apply(const T& a, const T& b) { return a xi_operator b;                      }  \
             constexpr static T apply(T&&      a, const T& b) { a xi_assign_operator b; return std::move(a); }  \
             constexpr static T apply(const T& a, T&&      b) { b xi_assign_operator a; return std::move(b); }  \
             constexpr static T apply(T&&      a, T&&      b) { a xi_assign_operator b; return std::move(a); }  \
         }
 
-            CREATE_BINARY_OPERATION(ADD, +, +=);
-            CREATE_BINARY_OPERATION(SUB, -, -=);
-            CREATE_BINARY_OPERATION(MUL, *, *=);
-            CREATE_BINARY_OPERATION(DIV, / , /=);
-            CREATE_BINARY_OPERATION(LOR, | , |=);
-            CREATE_BINARY_OPERATION(LAND, &, &=);
-            CREATE_BINARY_OPERATION(LXOR, ^, ^=);
-            CREATE_BINARY_OPERATION(SHL, << , <<=);
-            CREATE_BINARY_OPERATION(SHR, >> , >>=);
+            CREATE_BINARY_OPERATION(ADD,  +,   +=);
+            CREATE_BINARY_OPERATION(SUB,  -,   -=);
+            CREATE_BINARY_OPERATION(MUL,  *,   *=);
+            CREATE_BINARY_OPERATION(DIV,  / ,  /=);
+            CREATE_BINARY_OPERATION(LOR,  | ,  |=);
+            CREATE_BINARY_OPERATION(LAND, &,   &=);
+            CREATE_BINARY_OPERATION(LXOR, ^,   ^=);
+            CREATE_BINARY_OPERATION(SHL,  << , <<=);
+            CREATE_BINARY_OPERATION(SHR,  >> , >>=);
 #undef CREATE_BINARY_OPERATION
 
             // relation/logical operator overloading
@@ -134,39 +158,16 @@ namespace Lazy {
         }
 
             CREATE_BINARY_OPERATION(AND, &&);
-            CREATE_BINARY_OPERATION(OR, || );
-            CREATE_BINARY_OPERATION(EQ, == );
+            CREATE_BINARY_OPERATION(OR,  || );
+            CREATE_BINARY_OPERATION(EQ,  == );
             CREATE_BINARY_OPERATION(NEQ, != );
-            CREATE_BINARY_OPERATION(LT, < );
-            CREATE_BINARY_OPERATION(LE, <= );
-            CREATE_BINARY_OPERATION(GT, > );
-            CREATE_BINARY_OPERATION(GE, >= );
+            CREATE_BINARY_OPERATION(LT,  < );
+            CREATE_BINARY_OPERATION(LE,  <= );
+            CREATE_BINARY_OPERATION(GT,  > );
+            CREATE_BINARY_OPERATION(GE,  >= );
 #undef CREATE_BINARY_OPERATION
         };
     };
-
-    /**
-    * concepts
-    **/
-    namespace Concepts {
-        // test if an object is a binary expression
-        template<typename>                           struct is_binary_expression                                    : std::false_type {};
-        template<typename L, typename B, typename R> struct is_binary_expression<detail::BinaryExpression<L, B, R>> : std::true_type {};
-        template<typename T> constexpr bool is_binary_expression_v = is_binary_expression<T>::value;
-
-        // test if an object has the 'size()' method
-        template<typename T, typename = void> struct has_size                                                : std::false_type {};
-        template<typename T>                  struct has_size<T, decltype(std::declval<T>().size(), void())> : std::true_type  {};
-        template<typename T> constexpr bool has_size_v = has_size<T>::value;
-
-        // test if an object has '[]' operator
-        template<typename T, typename = void> struct has_access_operator                                                 : std::false_type {};
-        template<typename T>                  struct has_access_operator<T, std::void_t<decltype(std::declval<T>()[0])>> : std::true_type  {};
-        template<typename T> constexpr bool hsa_access_operator_v = has_access_operator<T>::value;
-
-        // test if an object can be wrapped by Lazy::Container
-        template<typename T> constexpr bool can_be_wrapped = has_size_v<T> && hsa_access_operator_v<T>;
-    }
 
     /**
     * \brief extend a container to be lazy evaluated under operator overloading.
@@ -181,7 +182,7 @@ namespace Lazy {
     **/
     template<typename COLLECTION> struct Container {
         // test that container upholds basic requirement
-        static_assert(Concepts::can_be_wrapped<COLLECTION>, "Container<Collection>: Collection can not be wrapped.");
+        static_assert(detail::Concepts::can_be_wrapped<COLLECTION>, "Container<Collection>: Collection can not be wrapped.");
 
         //
         // aliases
@@ -206,7 +207,7 @@ namespace Lazy {
         constexpr Container(COLLECTION& xi_col) : m_container(xi_col) {}
 
         // construct from a binary expression
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type* = nullptr>
+        template<typename T, typename std::enable_if<detail::Concepts::is_binary_expression_v<T>>::type* = nullptr>
         Container(T&& xi_expression) noexcept {
             for (std::size_t i{}; i < m_container.size(); ++i) {
                 m_container[i] = std::move(xi_expression[i]);
@@ -214,7 +215,7 @@ namespace Lazy {
         }
 
         // assign from a (right) expression
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type * = nullptr>
+        template<typename T, typename std::enable_if<detail::Concepts::is_binary_expression_v<T>>::type * = nullptr>
         Container& operator =(T&& xi_expression) noexcept {
             for (std::size_t i{}; i < m_container.size(); ++i) {
                 m_container[i] = std::move(xi_expression[i]);
@@ -239,207 +240,52 @@ namespace Lazy {
         //
         // operator overloading
         //
+        
+#define M_OPERATOR_OVERLOAD(OP, AOP, NAME)                                                                                                                                                                                                   \
+        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr>                                                                                                                 \
+        Container& operator AOP (RightExpr&& xi_expression) {                                                                                                                                                                                \
+            for (std::size_t i{}; i < m_container.size(); ++i) {                                                                                                                                                                             \
+                m_container[i] AOP static_cast<value_type>(xi_expression);                                                                                                                                                                   \
+            }                                                                                                                                                                                                                                \
+            return *this;                                                                                                                                                                                                                    \
+        }                                                                                                                                                                                                                                    \
+        template<typename T, typename std::enable_if<detail::Concepts::is_binary_expression_v<T>>::type* = nullptr>                                                                                                                          \
+        Container& operator AOP (T&& xi_expression) {                                                                                                                                                                                        \
+            for (std::size_t i{}; i < m_container.size(); ++i) {                                                                                                                                                                             \
+                m_container[i] AOP std::move(xi_expression[i]);                                                                                                                                                                              \
+            }                                                                                                                                                                                                                                \
+            return *this;                                                                                                                                                                                                                    \
+        }                                                                                                                                                                                                                                    \
+        template<typename RightExpr> auto operator OP (RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::ADD<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {         \
+            return detail::BinaryExpression<const Container&, NAME, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));                                                                        \
+        }                                                                                                                                                                                                                                    \
 
-        // '+'/'+=' overload 
-        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr>
-        Container& operator +=(RightExpr&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] += static_cast<value_type>(xi_expression);
-            }
-            return *this;
-        }
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type * = nullptr>
-        Container& operator +=(T&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] += std::move(xi_expression[i]);
-            }
-            return *this;
-        }
-        template<typename RightExpr> auto operator +(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::ADD<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::ADD<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
+        M_OPERATOR_OVERLOAD(+,  +=,  detail::BinaryOperations::ADD<value_type>);
+        M_OPERATOR_OVERLOAD(-,  -=,  detail::BinaryOperations::SUB<value_type>);
+        M_OPERATOR_OVERLOAD(*,  *=,  detail::BinaryOperations::MUL<value_type>);
+        M_OPERATOR_OVERLOAD(/,  /=,  detail::BinaryOperations::DIV<value_type>);
+        M_OPERATOR_OVERLOAD(&,  &=,  detail::BinaryOperations::LAND<value_type>);
+        M_OPERATOR_OVERLOAD(|,  |=,  detail::BinaryOperations::LOR<value_type>);
+        M_OPERATOR_OVERLOAD(^,  ^=,  detail::BinaryOperations::LXOR<value_type>);
+        M_OPERATOR_OVERLOAD(<<, <<=, detail::BinaryOperations::SHL<value_type>);
+        M_OPERATOR_OVERLOAD(>>, >>=, detail::BinaryOperations::SHR<value_type>);
 
-        // '-'/'-=' overload 
-        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr> 
-        Container& operator -=(RightExpr&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] -= static_cast<value_type>(xi_expression);
-            }
-            return *this;
-        }
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type* = nullptr>
-        Container& operator -=(T&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] -= std::move(xi_expression[i]);
-            }
-            return *this;
-        }
-        template<typename RightExpr> auto operator -(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::SUB<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::SUB<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
+#undef M_OPERATOR_OVERLOAD
 
-        // '*'/'*=' overload 
-        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr>
-        Container& operator *=(RightExpr&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] *= static_cast<value_type>(xi_expression);
-            }
-            return *this;
-        }
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type* = nullptr>
-        Container& operator *=(T&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] *= std::move(xi_expression[i]);
-            }
-            return *this;
-        }
-        template<typename RightExpr> auto operator *(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::MUL<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::MUL<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
+
+#define M_OPERATOR_OVERLOADING(OP, NAME)                                                                                                                                                                                              \
+        template<typename RightExpr> auto operator OP (RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::EQ<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {   \
+            return detail::BinaryExpression<const Container&, NAME, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));                                                                 \
         }
 
-        // '/'/'/=' overload 
-        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr>
-        Container& operator /=(RightExpr&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] /= static_cast<value_type>(xi_expression);
-            }
-            return *this;
-        }
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type* = nullptr>
-        Container& operator /=(T&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] /= std::move(xi_expression[i]);
-            }
-            return *this;
-        }
-        template<typename RightExpr> auto operator /(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::DIV<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::DIV<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
+        M_OPERATOR_OVERLOADING(== , detail::BinaryOperations::EQ<value_type>);
+        M_OPERATOR_OVERLOADING(!= , detail::BinaryOperations::NEQ<value_type>);
+        M_OPERATOR_OVERLOADING(< , detail::BinaryOperations::LT<value_type>);
+        M_OPERATOR_OVERLOADING(<= , detail::BinaryOperations::LE<value_type>);
+        M_OPERATOR_OVERLOADING(> , detail::BinaryOperations::GT<value_type>);
+        M_OPERATOR_OVERLOADING(>= , detail::BinaryOperations::GE<value_type>);
 
-        // '&'/'&=' overload 
-        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr>
-        Container& operator &=(RightExpr&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] &= static_cast<value_type>(xi_expression);
-            }
-            return *this;
-        }
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type* = nullptr>
-        Container& operator &=(T&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] &= std::move(xi_expression[i]);
-            }
-            return *this;
-        }
-        template<typename RightExpr> auto operator &(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::LAND<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::LAND<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '|'/'|=' overload 
-        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr>
-        Container& operator |=(RightExpr&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] |= static_cast<value_type>(xi_expression);
-            }
-            return *this;
-        }
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type* = nullptr>
-        Container& operator |=(T&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] |= std::move(xi_expression[i]);
-            }
-            return *this;
-        }
-        template<typename RightExpr> auto operator &(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::LOR<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::LOR<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '^'/'^=' overload 
-        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr>
-        Container& operator ^=(RightExpr&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] ^= static_cast<value_type>(xi_expression);
-            }
-            return *this;
-        }
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type* = nullptr>
-        Container& operator ^=(T&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] ^= std::move(xi_expression[i]);
-            }
-            return *this;
-        }
-        template<typename RightExpr> auto operator ^(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::LXOR<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::LXOR<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '<<'/'<<=' overload 
-        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr>
-        Container& operator <<=(RightExpr&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] <<= static_cast<value_type>(xi_expression);
-            }
-            return *this;
-        }
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type* = nullptr>
-        Container& operator <<=(T&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] <<= std::move(xi_expression[i]);
-            }
-            return *this;
-        }
-        template<typename RightExpr> auto operator <<(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::SHL<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::SHL<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '>>'/'>>=' overload 
-        template<typename RightExpr, typename std::enable_if<std::is_convertible_v<RightExpr, value_type>>::type* = nullptr>
-        Container& operator >>=(RightExpr&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] >>= static_cast<value_type>(xi_expression);
-            }
-            return *this;
-        }
-        template<typename T, typename std::enable_if<Concepts::is_binary_expression_v<T>>::type* = nullptr>
-        Container& operator >>=(T&& xi_expression) {
-            for (std::size_t i{}; i < m_container.size(); ++i) {
-                m_container[i] >>= std::move(xi_expression[i]);
-            }
-            return *this;
-        }
-        template<typename RightExpr> auto operator >>(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::SHR<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::SHR<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '=='
-        template<typename RightExpr> auto operator ==(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::EQ<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::EQ<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '!='
-        template<typename RightExpr> auto operator !=(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::NEQ<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::NEQ<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '<'
-        template<typename RightExpr> auto operator <(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::LT<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::LT<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '<='
-        template<typename RightExpr> auto operator <=(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::LE<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::LE<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '>'
-        template<typename RightExpr> auto operator >(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::GT<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::GT<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
-
-        // '>='
-        template<typename RightExpr> auto operator >=(RightExpr&& xi_expression) const -> detail::BinaryExpression<const Container&, detail::BinaryOperations::GE<value_type>, decltype(std::forward<RightExpr>(xi_expression))> {
-            return detail::BinaryExpression<const Container&, detail::BinaryOperations::GE<value_type>, decltype(std::forward<RightExpr>(xi_expression))>(*this, std::forward<RightExpr>(xi_expression));
-        }
+#undef M_OPERATOR_OVERLOADING
 
         // properties
         private:
